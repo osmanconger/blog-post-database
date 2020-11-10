@@ -4,7 +4,7 @@ import dagger.Component;
 import javax.inject.Singleton;
 
 @Singleton
-@Component(modules = DaggerModule.class)
+@Component(modules = {DaggerModule.class, PostModule.class})
 public interface PostComponent {
 
     public Post buildPost();

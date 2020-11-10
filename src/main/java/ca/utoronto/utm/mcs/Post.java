@@ -1,18 +1,16 @@
 package ca.utoronto.utm.mcs;
 
 import com.mongodb.client.FindIterable;
-import com.mongodb.client.MongoClient;
 import com.mongodb.client.MongoCollection;
 import com.mongodb.client.MongoDatabase;
 import com.sun.net.httpserver.HttpExchange;
 import com.sun.net.httpserver.HttpHandler;
-import jdk.nashorn.internal.ir.Node;
 import org.bson.Document;
 import org.bson.types.ObjectId;
-import org.json.JSONArray;
 import org.json.JSONException;
 import org.json.JSONObject;
 
+import javax.inject.Inject;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.nio.charset.Charset;
@@ -21,13 +19,13 @@ import java.util.Arrays;
 import java.util.List;
 
 public class Post implements HttpHandler {
-    private MongoDatabase db;
+    private MongoDatabase mongoDatabase;
     private MongoCollection<Document> collection;
-//    Dagger service = DaggerDaggerComponent.create().buildMongoHttp();
 
-    public Post(MongoClient client) {
-        db = client.getDatabase("csc301a2");
-        collection = db.getCollection("posts");
+    @Inject
+    public Post(MongoDatabase mongoDatabase, MongoCollection collection) {
+        this.mongoDatabase = mongoDatabase;
+        this.collection = collection;
     }
 
     @Override
