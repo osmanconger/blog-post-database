@@ -12,15 +12,15 @@ public class PostModule {
 
     private MongoDatabase mongoDatabase;
     private MongoCollection<Document> collection;
-	static String databaseName = "csc301a2";
-	static String collectionName = "posts";
 
 	@Provides public MongoDatabase provideMongoDatabase(MongoClient client) {
+	    String databaseName = "csc301a2";
         mongoDatabase = client.getDatabase(databaseName);
         return mongoDatabase;
     }
 
     @Provides public MongoCollection provideMongoCollection(MongoDatabase mongoDatabase) {
+	    String collectionName = "posts";
         collection = mongoDatabase.getCollection(collectionName);
         return collection;
     }

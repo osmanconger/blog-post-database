@@ -67,9 +67,20 @@ public class Post implements HttpHandler {
                 deserialized.getString("content"),
                 tags);
 
+        JSONObject deserializedResponse = new JSONObject();
         collection.insertOne(dbObject);
+        ObjectId id = (ObjectId)dbObject.get( "_id" );
 
-        httpExchange.sendResponseHeaders(200, -1);
+        String responseBody = deserializedResponse.put("_id", id).toString();
+        httpExchange.getResponseHeaders().set("Content-Type", "application/json");
+        httpExchange.sendResponseHeaders(200, responseBody.length());
+        OutputStream outputStream = httpExchange.getResponseBody();
+        try {
+            outputStream.write(responseBody.getBytes(Charset.defaultCharset()));
+        } finally {
+            outputStream.close();
+        }
+
     }
 
     private void handleGet(HttpExchange httpExchange) throws JSONException, IOException {
