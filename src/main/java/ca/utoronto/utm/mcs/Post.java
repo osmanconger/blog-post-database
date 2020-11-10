@@ -1,17 +1,33 @@
 package ca.utoronto.utm.mcs;
 
+import com.mongodb.client.FindIterable;
 import com.mongodb.client.MongoClient;
+import com.mongodb.client.MongoCollection;
+import com.mongodb.client.MongoDatabase;
 import com.sun.net.httpserver.HttpExchange;
 import com.sun.net.httpserver.HttpHandler;
+import jdk.nashorn.internal.ir.Node;
+import org.bson.Document;
+import org.bson.types.ObjectId;
+import org.json.JSONArray;
+import org.json.JSONException;
+import org.json.JSONObject;
 
 import java.io.IOException;
+import java.io.OutputStream;
+import java.nio.charset.Charset;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.List;
 
 public class Post implements HttpHandler {
-    private MongoClient db;
+    private MongoDatabase db;
+    private MongoCollection<Document> collection;
 //    Dagger service = DaggerDaggerComponent.create().buildMongoHttp();
 
-    public Post(MongoClient database) {
-        db = database;
+    public Post(MongoClient client) {
+        db = client.getDatabase("csc301a2");
+        collection = db.getCollection("posts");
     }
 
     @Override
@@ -32,15 +48,77 @@ public class Post implements HttpHandler {
         }
     }
 
-    public void handlePut(HttpExchange httpExchange) {
-        
+    private Document createBlogPost(String title, String author, String content, List<String> tags) throws JSONException {
+
+        Document doc = new Document().append("title", title)
+                .append("author", author)
+                .append("content", content)
+                .append("tags", tags);
+
+        return doc;
     }
 
-    public void handleGet(HttpExchange httpExchange) {
+    private void handlePut(HttpExchange httpExchange) throws IOException, JSONException {
+        String body = Utils.convert(httpExchange.getRequestBody());
+        JSONObject deserialized = new JSONObject(body);
 
+        List<String> tags = new ArrayList<String>(Arrays.asList(deserialized.getString("tags").replaceAll("]|\\\"|\\[", "").split(",")));
+
+        Document dbObject = createBlogPost(deserialized.getString("title"),
+                deserialized.getString("author"),
+                deserialized.getString("content"),
+                tags);
+
+        collection.insertOne(dbObject);
+
+        httpExchange.sendResponseHeaders(200, -1);
     }
 
-    public void handleDelete(HttpExchange httpExchange) {
+    private void handleGet(HttpExchange httpExchange) throws JSONException, IOException {
+        String body = Utils.convert(httpExchange.getRequestBody());
+        JSONObject deserialized = new JSONObject(body);
+        FindIterable<Document> documents;
+        ArrayList<String> objectList = new ArrayList<>();
 
+        if(deserialized.has("_id")) {
+            documents = collection.find(new Document().append("_id",
+                    new ObjectId(deserialized.getString("_id"))));
+
+            deserialized.put("title", documents.first().get("title"))
+                        .put("author", documents.first().get("author"))
+                        .put("content", documents.first().get("content"))
+                        .put("tags", documents.first().get("tags"));
+            objectList.add(deserialized.toString());
+
+        } else {
+            documents = collection.find(new Document().append("title",
+                    deserialized.getString("title")));
+            for(Document document : documents) {
+                deserialized.put("title", document.get("title"))
+                        .put("author", document.get("author"))
+                        .put("content", document.get("content"))
+                        .put("tags", document.get("tags"));
+                objectList.add(deserialized.toString());
+            }
+        }
+        String responseBody = objectList.toString();
+        httpExchange.getResponseHeaders().set("Content-Type", "application/json");
+        httpExchange.sendResponseHeaders(200, responseBody.length());
+        OutputStream outputStream = httpExchange.getResponseBody();
+        try {
+            outputStream.write(responseBody.getBytes(Charset.defaultCharset()));
+        } finally { 
+            outputStream.close(); 
+        }
+    }
+
+    private void handleDelete(HttpExchange httpExchange) throws JSONException, IOException {
+        String body = Utils.convert(httpExchange.getRequestBody());
+        JSONObject deserialized = new JSONObject(body);
+        if (collection.find(new Document().append("_id", new ObjectId(deserialized.getString("_id")))) != null) {
+            collection.deleteOne(new Document().append("_id", new ObjectId(deserialized.getString("_id"))));
+        }
+
+        httpExchange.sendResponseHeaders(200, -1);
     }
 }
