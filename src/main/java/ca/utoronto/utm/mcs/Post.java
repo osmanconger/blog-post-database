@@ -59,13 +59,19 @@ public class Post implements HttpHandler {
     private void handlePut(HttpExchange httpExchange) throws IOException, JSONException {
         String body = Utils.convert(httpExchange.getRequestBody());
         JSONObject deserialized = new JSONObject(body);
+        Document dbObject;
 
-        List<String> tags = new ArrayList<String>(Arrays.asList(deserialized.getString("tags").replaceAll("]|\\\"|\\[", "").split(",")));
+        try {
+            List<String> tags = new ArrayList<String>(Arrays.asList(deserialized.getString("tags").replaceAll("]|\\\"|\\[", "").split(",")));
 
-        Document dbObject = createBlogPost(deserialized.getString("title"),
-                deserialized.getString("author"),
-                deserialized.getString("content"),
-                tags);
+            dbObject = createBlogPost(deserialized.getString("title"),
+                    deserialized.getString("author"),
+                    deserialized.getString("content"),
+                    tags);
+        } catch (JSONException e) {
+            httpExchange.sendResponseHeaders(400, -1);
+            return;
+        }
 
         JSONObject deserializedResponse = new JSONObject();
         collection.insertOne(dbObject);
@@ -90,8 +96,18 @@ public class Post implements HttpHandler {
         ArrayList<String> objectList = new ArrayList<>();
 
         if(deserialized.has("_id")) {
-            documents = collection.find(new Document().append("_id",
-                    new ObjectId(deserialized.getString("_id"))));
+            try {
+                documents = collection.find(new Document().append("_id",
+                        new ObjectId(deserialized.getString("_id"))));
+
+                if (documents.first() == null) {
+                    httpExchange.sendResponseHeaders(404, -1);
+                    return;
+                }
+            } catch (IllegalArgumentException e) {
+                httpExchange.sendResponseHeaders(404, -1);
+                return;
+            }
 
             deserialized.put("title", documents.first().get("title"))
                         .put("author", documents.first().get("author"))
@@ -100,8 +116,21 @@ public class Post implements HttpHandler {
             objectList.add(deserialized.toString());
 
         } else {
-            documents = collection.find(new Document().append("title",
-                    deserialized.getString("title")));
+            try {
+                documents = collection.find(new Document().append("title",
+                        deserialized.getString("title")));
+                if(documents.first() == null) {
+                    httpExchange.sendResponseHeaders(404, -1);
+                    return;
+                }
+            } catch (IllegalArgumentException e) {
+                httpExchange.sendResponseHeaders(404, -1);
+                return;
+            } catch (JSONException e) {
+                httpExchange.sendResponseHeaders(400, -1);
+                return;
+            }
+
             for(Document document : documents) {
                 deserialized.put("title", document.get("title"))
                         .put("author", document.get("author"))
