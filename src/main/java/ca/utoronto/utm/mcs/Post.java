@@ -4,14 +4,15 @@ import com.mongodb.client.MongoClient;
 import com.sun.net.httpserver.HttpExchange;
 import com.sun.net.httpserver.HttpHandler;
 
+import javax.inject.Inject;
 import java.io.IOException;
 
 public class Post implements HttpHandler {
     private MongoClient db;
-//    Dagger service = DaggerDaggerComponent.create().buildMongoHttp();
 
-    public Post(MongoClient database) {
-        db = database;
+    @Inject
+    public Post(MongoClient db) {
+        this.db = db;
     }
 
     @Override

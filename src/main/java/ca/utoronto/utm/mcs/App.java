@@ -1,13 +1,6 @@
 package ca.utoronto.utm.mcs;
 
 import java.io.IOException;
-import java.net.InetSocketAddress;
-import java.net.URI;
-import java.net.URISyntaxException;
-import com.sun.net.httpserver.HttpServer;
-
-import javax.inject.Inject;
-
 
 public class App
 {
@@ -16,10 +9,10 @@ public class App
     public static void main(String[] args) throws IOException
     {
     	Dagger service = DaggerDaggerComponent.create().buildMongoHttp();
- //   	System.out.printf(service.getServer().getAddress().toString());
+        Post post = DaggerPostComponent.create().buildPost();
 
-    	//Create your server context here
-        service.getServer().createContext("/api/v1/post", new Post(service.getDb()));
+        //Create your server context here
+        service.getServer().createContext("/api/v1/post", post);
         
     	service.getServer().start();
     	
