@@ -153,10 +153,18 @@ public class Post implements HttpHandler {
     private void handleDelete(HttpExchange httpExchange) throws JSONException, IOException {
         String body = Utils.convert(httpExchange.getRequestBody());
         JSONObject deserialized = new JSONObject(body);
-        if (collection.find(new Document().append("_id", new ObjectId(deserialized.getString("_id")))) != null) {
-            collection.deleteOne(new Document().append("_id", new ObjectId(deserialized.getString("_id"))));
+        try {
+            if (collection.find(new Document().append("_id", new ObjectId(deserialized.getString("_id")))).first() != null) {
+                collection.deleteOne(new Document().append("_id", new ObjectId(deserialized.getString("_id"))));
+                httpExchange.sendResponseHeaders(200, -1);
+            } else {
+                httpExchange.sendResponseHeaders(404, -1);
+            }
+        } catch (JSONException e) {
+            httpExchange.sendResponseHeaders(400, -1);
+            return;
+        } catch (IllegalArgumentException e) {
+            httpExchange.sendResponseHeaders(404, -1);
         }
-
-        httpExchange.sendResponseHeaders(200, -1);
     }
 }

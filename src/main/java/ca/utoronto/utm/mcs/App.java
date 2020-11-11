@@ -4,7 +4,6 @@ import java.io.IOException;
 
 public class App
 {
-    static int port = 8080;
 
     public static void main(String[] args) throws IOException
     {
@@ -16,6 +15,6 @@ public class App
         
     	service.getServer().start();
     	
-    	System.out.printf("Server started on port %d", port);
+    	System.out.printf("Server started on port %d", service.getPort());
     }
 }

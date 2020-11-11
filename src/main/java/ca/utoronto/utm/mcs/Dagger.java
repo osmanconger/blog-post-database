@@ -9,11 +9,21 @@ public class Dagger {
 
 	private HttpServer server;
 	private MongoClient db;
+	private int PORT;
 
 	@Inject
-	public Dagger(HttpServer server, MongoClient db) {
+	public Dagger(HttpServer server, MongoClient db, int PORT) {
 		this.server = server;
 		this.db = db;
+		this.PORT = PORT;
+	}
+
+	public int getPort() {
+		return this.PORT;
+	}
+
+	public void  setPORT(int PORT) {
+		this.PORT = PORT;
 	}
 
 	public HttpServer getServer() {
