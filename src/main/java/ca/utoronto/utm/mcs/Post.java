@@ -47,11 +47,10 @@ public class Post implements HttpHandler {
     }
 
     private Document createBlogPost(String title, String author, String content, List<String> tags) throws JSONException {
-
-        Document doc = new Document().append("title", title)
-                .append("author", author)
-                .append("content", content)
-                .append("tags", tags);
+        Document doc= new Document().append("title", title)
+                    .append("author", author)
+                    .append("content", content)
+                    .append("tags", tags);
 
         return doc;
     }
@@ -62,7 +61,12 @@ public class Post implements HttpHandler {
         Document dbObject;
 
         try {
-            List<String> tags = new ArrayList<String>(Arrays.asList(deserialized.getString("tags").replaceAll("]|\\\"|\\[", "").split(",")));
+            List<String> tags;
+            if(deserialized.getString("tags").equals("[]")) {
+                tags = new ArrayList<>();
+            } else{
+                tags = new ArrayList<>(Arrays.asList(deserialized.getString("tags").replaceAll("]|\\\"|\\[", "").split(",")));
+            }
 
             dbObject = createBlogPost(deserialized.getString("title"),
                     deserialized.getString("author"),
@@ -109,11 +113,7 @@ public class Post implements HttpHandler {
                 return;
             }
 
-            deserialized.put("title", documents.first().get("title"))
-                        .put("author", documents.first().get("author"))
-                        .put("content", documents.first().get("content"))
-                        .put("tags", documents.first().get("tags"));
-            objectList.add(deserialized.toString());
+            objectList.add(documents.first().toJson());
 
         } else {
             try {
@@ -132,11 +132,7 @@ public class Post implements HttpHandler {
             }
 
             for(Document document : documents) {
-                deserialized.put("title", document.get("title"))
-                        .put("author", document.get("author"))
-                        .put("content", document.get("content"))
-                        .put("tags", document.get("tags"));
-                objectList.add(deserialized.toString());
+                objectList.add(document.toJson());
             }
         }
         String responseBody = objectList.toString();
