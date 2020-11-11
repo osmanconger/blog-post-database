@@ -1,18 +1,16 @@
 package ca.utoronto.utm.mcs;
 
 import com.mongodb.client.FindIterable;
-import com.mongodb.client.MongoClient;
 import com.mongodb.client.MongoCollection;
 import com.mongodb.client.MongoDatabase;
 import com.sun.net.httpserver.HttpExchange;
 import com.sun.net.httpserver.HttpHandler;
-import jdk.nashorn.internal.ir.Node;
 import org.bson.Document;
 import org.bson.types.ObjectId;
-import org.json.JSONArray;
 import org.json.JSONException;
 import org.json.JSONObject;
 
+import javax.inject.Inject;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.nio.charset.Charset;
@@ -21,13 +19,13 @@ import java.util.Arrays;
 import java.util.List;
 
 public class Post implements HttpHandler {
-    private MongoDatabase db;
+    private MongoDatabase mongoDatabase;
     private MongoCollection<Document> collection;
-//    Dagger service = DaggerDaggerComponent.create().buildMongoHttp();
 
-    public Post(MongoClient client) {
-        db = client.getDatabase("csc301a2");
-        collection = db.getCollection("posts");
+    @Inject
+    public Post(MongoDatabase mongoDatabase, MongoCollection collection) {
+        this.mongoDatabase = mongoDatabase;
+        this.collection = collection;
     }
 
     @Override
@@ -61,17 +59,34 @@ public class Post implements HttpHandler {
     private void handlePut(HttpExchange httpExchange) throws IOException, JSONException {
         String body = Utils.convert(httpExchange.getRequestBody());
         JSONObject deserialized = new JSONObject(body);
+        Document dbObject;
 
-        List<String> tags = new ArrayList<String>(Arrays.asList(deserialized.getString("tags").replaceAll("]|\\\"|\\[", "").split(",")));
+        try {
+            List<String> tags = new ArrayList<String>(Arrays.asList(deserialized.getString("tags").replaceAll("]|\\\"|\\[", "").split(",")));
 
-        Document dbObject = createBlogPost(deserialized.getString("title"),
-                deserialized.getString("author"),
-                deserialized.getString("content"),
-                tags);
+            dbObject = createBlogPost(deserialized.getString("title"),
+                    deserialized.getString("author"),
+                    deserialized.getString("content"),
+                    tags);
+        } catch (JSONException e) {
+            httpExchange.sendResponseHeaders(400, -1);
+            return;
+        }
 
+        JSONObject deserializedResponse = new JSONObject();
         collection.insertOne(dbObject);
+        ObjectId id = (ObjectId)dbObject.get( "_id" );
 
-        httpExchange.sendResponseHeaders(200, -1);
+        String responseBody = deserializedResponse.put("_id", id).toString();
+        httpExchange.getResponseHeaders().set("Content-Type", "application/json");
+        httpExchange.sendResponseHeaders(200, responseBody.length());
+        OutputStream outputStream = httpExchange.getResponseBody();
+        try {
+            outputStream.write(responseBody.getBytes(Charset.defaultCharset()));
+        } finally {
+            outputStream.close();
+        }
+
     }
 
     private void handleGet(HttpExchange httpExchange) throws JSONException, IOException {
@@ -81,8 +96,18 @@ public class Post implements HttpHandler {
         ArrayList<String> objectList = new ArrayList<>();
 
         if(deserialized.has("_id")) {
-            documents = collection.find(new Document().append("_id",
-                    new ObjectId(deserialized.getString("_id"))));
+            try {
+                documents = collection.find(new Document().append("_id",
+                        new ObjectId(deserialized.getString("_id"))));
+
+                if (documents.first() == null) {
+                    httpExchange.sendResponseHeaders(404, -1);
+                    return;
+                }
+            } catch (IllegalArgumentException e) {
+                httpExchange.sendResponseHeaders(404, -1);
+                return;
+            }
 
             deserialized.put("title", documents.first().get("title"))
                         .put("author", documents.first().get("author"))
@@ -91,8 +116,21 @@ public class Post implements HttpHandler {
             objectList.add(deserialized.toString());
 
         } else {
-            documents = collection.find(new Document().append("title",
-                    deserialized.getString("title")));
+            try {
+                documents = collection.find(new Document().append("title",
+                        deserialized.getString("title")));
+                if(documents.first() == null) {
+                    httpExchange.sendResponseHeaders(404, -1);
+                    return;
+                }
+            } catch (IllegalArgumentException e) {
+                httpExchange.sendResponseHeaders(404, -1);
+                return;
+            } catch (JSONException e) {
+                httpExchange.sendResponseHeaders(400, -1);
+                return;
+            }
+
             for(Document document : documents) {
                 deserialized.put("title", document.get("title"))
                         .put("author", document.get("author"))
@@ -115,10 +153,18 @@ public class Post implements HttpHandler {
     private void handleDelete(HttpExchange httpExchange) throws JSONException, IOException {
         String body = Utils.convert(httpExchange.getRequestBody());
         JSONObject deserialized = new JSONObject(body);
-        if (collection.find(new Document().append("_id", new ObjectId(deserialized.getString("_id")))) != null) {
-            collection.deleteOne(new Document().append("_id", new ObjectId(deserialized.getString("_id"))));
+        try {
+            if (collection.find(new Document().append("_id", new ObjectId(deserialized.getString("_id")))).first() != null) {
+                collection.deleteOne(new Document().append("_id", new ObjectId(deserialized.getString("_id"))));
+                httpExchange.sendResponseHeaders(200, -1);
+            } else {
+                httpExchange.sendResponseHeaders(404, -1);
+            }
+        } catch (JSONException e) {
+            httpExchange.sendResponseHeaders(400, -1);
+            return;
+        } catch (IllegalArgumentException e) {
+            httpExchange.sendResponseHeaders(404, -1);
         }
-
-        httpExchange.sendResponseHeaders(200, -1);
     }
 }
